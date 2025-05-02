@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPX Editor Sample"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>Sample GPX File 1</name>
+    <desc>A sample GPX file for testing the GPX Editor</desc>
+    <time>2025-05-02T14:00:00Z</time>
+  </metadata>
+  <wpt lat="37.7749" lon="-122.4194">
+    <ele>10</ele>
+    <time>2025-05-02T14:01:00Z</time>
+    <name>Waypoint 1</name>
+    <desc>First sample waypoint</desc>
+    <sym>Flag</sym>
+    <cmt>This is a comment for waypoint 1</cmt>
+  </wpt>
+  <wpt lat="37.7750" lon="-122.4195">
+    <ele>15</ele>
+    <time>2025-05-02T14:02:00Z</time>
+    <name>Waypoint 2</name>
+    <desc>Second sample waypoint</desc>
+    <sym>Pin</sym>
+    <cmt>This is a comment for waypoint 2</cmt>
+  </wpt>
+  <wpt lat="37.7751" lon="-122.4196">
+    <ele>20</ele>
+    <time>2025-05-02T14:03:00Z</time>
+    <name>Waypoint 3</name>
+    <desc>Third sample waypoint</desc>
+    <sym>Marker</sym>
+    <cmt>This is a comment for waypoint 3</cmt>
+  </wpt>
+</gpx>

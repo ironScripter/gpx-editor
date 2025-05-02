@@ -1,6 +1,15 @@
-"""Main entry point for the gpx-editor package."""
+"""Main entry point for the GPX Editor package."""
 
-from gpx_editor.editor import main
+import sys
+import os
 
 if __name__ == "__main__":
-    main()
+    # Check if any arguments are provided
+    if len(sys.argv) > 1:
+        # If arguments are provided, run CLI
+        from .cli import main as cli_main
+        cli_main()
+    else:
+        # If no arguments, run GUI
+        from .gui import main as gui_main
+        gui_main()

@@ -19,14 +19,16 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Poetry
-poetry.lock
-
-# Virtual Environments
+# Environments
+.env
+.venv
+env/
 venv/
 ENV/
-env/
+env.bak/
+venv.bak/
 
 # IDE files
 .idea/
@@ -34,11 +36,9 @@ env/
 *.swp
 *.swo
 
-# macOS
+# OS specific files
 .DS_Store
+Thumbs.db
 
-# Debug files
-debug_output.txt
-
-# Backup files
-backup/
+# GPX Editor specific
+backups/

@@ -1,61 +1,57 @@
 # GPX Editor Release Notes
 
-## v1.0.0-beta (May 2, 2025)
+## v1.0.1-beta (May 2, 2025)
 
-This is the initial beta release of the GPX Editor tool, a Python utility for editing and manipulating GPX files.
+This release includes several improvements and enhancements to the GPX Editor tool based on user feedback and requirements.
 
-### Features
+### Improvements
 
-- **Core GPX Editing**
-  - Copy attributes between waypoints
-  - Swap attribute values
-  - Process individual or all waypoints in a file
-  - Automatic backup creation before modifications
+- **CLI Enhancements**
+  - Switched from Click to argparse for command-line argument parsing
+  - Added support for batch processing multiple files
+  - Improved error handling and logging
+  - Added prefix/suffix options for batch file saving
 
-- **File Renaming**
-  - Rename GPX files based on directory structure
-  - Apply abbreviations to directory names (2-3 letters in length)
-  - Reverse directory order in filenames (deepest directory first)
-  - Use hyphens as separators (e.g., "D3-D2-D1.gpx")
-  - Exclude original filename from the new name
+- **File Renaming Enhancements**
+  - Improved directory-based file renaming
+  - Abbreviations are now consistently 2-3 letters in length
+  - Excluded original filename from the new name
+  - Used hyphens without spaces as separators (e.g., "D3-D2-D1.gpx")
+  - Reversed the order of directories (deepest directory first)
+  - Example: For a file path D1/D2/D3/F.gpx, the new filename is now "D3-D2-D1.gpx"
 
-- **User Interfaces**
-  - Command-line interface with argparse
-  - Full-featured GUI with Tkinter
-  - Batch processing capabilities
+- **Attribute Operations**
+  - Added attribute preview functionality
+  - Improved batch attribute operations
+  - Enhanced safety features to prevent modifying critical attributes
 
-- **Development Improvements**
-  - Poetry-based dependency management
-  - Proper package structure for PyPI distribution
-  - GitHub Actions for automated publishing
+- **GUI Improvements**
+  - Restructured GUI to follow correct operation order
+  - Improved file selection interface
+  - Added clear indication of selected files
+  - Added option to remove files from selection
+  - Enhanced save functionality with prefix/suffix options
 
-### Installation
+- **Dependency Management**
+  - Converted project to use Poetry for dependency management
+  - Added poetry.lock file for reproducible builds
+  - Maintained compatibility with pip via requirements.txt
 
-```bash
-# Install from PyPI
-pip install gpx-editor
+- **Documentation**
+  - Added comprehensive USER_GUIDE.md
+  - Updated README.md with new features and usage examples
+  - Added PROJECT_PLAN.md for development tracking
 
-# Or using Poetry
-poetry add gpx-editor
-```
+- **Sample Files**
+  - Added sample GPX files for testing
+  - Included nested directory structure for testing file renaming
 
-### Usage Examples
+### Bug Fixes
 
-**Command Line Interface:**
-```bash
-# Basic attribute operations
-gpx-editor --input input.gpx --output output.gpx --copy description name
-gpx-editor --input input.gpx --output output.gpx --swap description name --all
-
-# File renaming based on directory structure
-gpx-editor --input path/to/your/gpx/file.gpx --rename
-```
-
-**GUI Interface:**
-```bash
-# Launch the graphical interface
-gpx-editor-gui
-```
+- Fixed issue with attribute swapping in batch mode
+- Resolved file path handling on different operating systems
+- Fixed memory leaks when processing large GPX files
+- Improved error handling for malformed GPX files
 
 ### Known Issues
 
@@ -65,18 +61,14 @@ gpx-editor-gui
 ### Upcoming Features
 
 - Support for track and route elements in addition to waypoints
-- Batch processing improvements
 - Advanced filtering capabilities
 - Command-line completion
 
-### Breaking Changes
-
-- None (initial release)
-
 ### Dependencies
 
-- Python 3.7+
-- xmltodict
+- Python 3.8+
+- xmltodict 0.13.0+
+- Poetry for dependency management
 
 ### Contributors
 

@@ -1,31 +1,23 @@
 [tool.poetry]
 name = "gpx-editor"
-version = "0.1.0"
-description = "A tool for editing GPX files"
-authors = ["James Arnett <38123275+ironScripter@users.noreply.github.com>"]
+version = "1.0.0"
+description = "A tool for editing GPX files, specifically designed for moving and copying attributes between waypoints"
+authors = ["James Arnett"]
 readme = "README.md"
-repository = "https://github.com/ironscripter/gpx-editor"
-license = "MIT"
 packages = [{include = "gpx_editor"}]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 xmltodict = "^0.13.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.0.0"
-poetry-dynamic-versioning = "^1.8.2"
-
-[build-system]
-requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
-build-backend = "poetry_dynamic_versioning.backend"
-
-[tool.poetry-dynamic-versioning]
-enable = true
-vcs = "git"
-style = "semver"
-latest-tag = true
+colorama = "^0.4.6"
+dunamai = "^1.23.1"
 
 [tool.poetry.scripts]
 gpx-editor = "gpx_editor.cli:main"
 gpx-editor-gui = "gpx_editor.gui:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

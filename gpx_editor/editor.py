@@ -3,6 +3,7 @@
 import xml.etree.ElementTree as ET
 import xmltodict
 import json
+import argparse
 import os
 import shutil
 from datetime import datetime
@@ -11,414 +12,367 @@ import logging
 import traceback
 
 # Set up logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 class GPXEditor:
+    # Define which attributes are editable
+    EDITABLE_ATTRIBUTES = ['name', 'cmt', 'desc', 'sym', 'type']
+    
     def __init__(self):
         self.history = []
         self.future = []
         self.current_state = None
         self.current_waypoint = None
-        self.original_file_path = None
-        self.history_listeners = []  # Callbacks to notify when history changes
+        self.history_listeners = []
         
-    def add_history_listener(self, callback):
-        """Add a callback to be notified when history changes"""
-        self.history_listeners.append(callback)
+    def add_history_listener(self, listener):
+        """Add a listener function to be called when history changes"""
+        self.history_listeners.append(listener)
         
-    def notify_history_changed(self):
-        """Notify all listeners that history has changed"""
-        for callback in self.history_listeners:
-            callback()
-
-    def get_all_waypoints(self):
-        """Get all waypoints from the current state."""
-        logger.debug("Getting all waypoints")
-        if not self.current_state:
-            logger.debug("No current state")
-            return []
-        
-        waypoints = []
-        try:
-            logger.debug(f"Current state structure: {json.dumps(self.current_state, indent=2)}")
-            if 'gpx' in self.current_state:
-                # Check for waypoints
-                if 'wpt' in self.current_state['gpx']:
-                    wpts = self.current_state['gpx']['wpt']
-                    if isinstance(wpts, dict):
-                        wpts = [wpts]
-                    waypoints.extend(wpts)
-                    logger.debug(f"Found {len(waypoints)} waypoints")
-            else:
-                logger.debug("No 'gpx' key found in state")
-        except KeyError as e:
-            logger.error(f"KeyError while getting waypoints: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error while getting waypoints: {e}")
-        
-        logger.debug(f"Returning {len(waypoints)} waypoints")
-        return waypoints
-
-    def get_all_attributes(self):
-        """Get all unique attributes from all waypoints."""
-        logger.debug("Getting all attributes")
-        if not self.current_state:
-            logger.debug("No current state")
-            return []
-        
-        attributes = set()
-        waypoints = self.get_all_waypoints()
-        logger.debug(f"Got {len(waypoints)} waypoints")
-        
-        for waypoint in waypoints:
-            if isinstance(waypoint, dict):
-                logger.debug(f"Processing waypoint with keys: {list(waypoint.keys())}")
-                # Get all keys including nested ones
-                def get_all_keys(d, parent_key=''):
-                    if isinstance(d, dict):
-                        for k, v in d.items():
-                            new_key = f"{parent_key}.{k}" if parent_key else k
-                            attributes.add(new_key)
-                            get_all_keys(v, new_key)
-                    elif isinstance(d, list):
-                        for i, v in enumerate(d):
-                            get_all_keys(v, f"{parent_key}[{i}]")
-                get_all_keys(waypoint)
-        
-        attributes_list = sorted(list(attributes))
-        logger.debug(f"Found attributes: {attributes_list}")
-        return attributes_list
-
-    def get_attribute_value(self, attribute, waypoint_index=0):
-        """Get the value of an attribute from a specific waypoint."""
-        if not self.current_state:
-            return ""
-        
-        waypoints = self.get_all_waypoints()
-        if not waypoints:
-            return ""
+    def _notify_history_listeners(self):
+        """Notify all history listeners of a change"""
+        for listener in self.history_listeners:
+            try:
+                listener()
+            except Exception as e:
+                logger.error(f"Error in history listener: {e}")
+                
+    def create_backup(self, file_path):
+        """Create a backup of the specified file"""
+        if not os.path.exists(file_path):
+            logger.error(f"File not found: {file_path}")
+            return None
             
-        if waypoint_index >= len(waypoints):
-            waypoint_index = 0
+        # Create backup directory if it doesn't exist
+        backup_dir = os.path.join(os.path.dirname(file_path), "backups")
+        os.makedirs(backup_dir, exist_ok=True)
         
-        # Handle nested attributes with dot notation
-        waypoint = waypoints[waypoint_index]
+        # Create backup filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = os.path.basename(file_path)
+        backup_name = f"{os.path.splitext(file_name)[0]}_{timestamp}{os.path.splitext(file_name)[1]}"
+        backup_path = os.path.join(backup_dir, backup_name)
         
-        return self.get_attribute_value_from_waypoint(waypoint, attribute)
-
-    def copy_attribute_all(self, source_attr, target_attr):
-        """Copy an attribute from source to target for all waypoints."""
-        logger.debug(f"Copying attribute {source_attr} to {target_attr} for all waypoints")
-        if not self.current_state:
-            logger.debug("No current state")
-            return False
-        
-        waypoints = self.get_all_waypoints()
-        if not waypoints:
-            logger.debug("No waypoints found")
-            return False
-        
-        # Save current state for undo
-        self.history.append(copy.deepcopy(self.current_state))
-        self.future = []
-        
+        # Copy file to backup
         try:
-            for waypoint in waypoints:
-                source_value = self.get_attribute_value_from_waypoint(waypoint, source_attr)
-                self.set_attribute_value_to_waypoint(waypoint, target_attr, source_value)
-            
-            self.notify_history_changed()
-            return True
+            shutil.copy2(file_path, backup_path)
+            logger.info(f"Created backup at: {backup_path}")
+            return backup_path
         except Exception as e:
-            logger.error(f"Error copying attribute for all waypoints: {e}")
-            return False
-
-    def swap_attributes_all(self, attr1, attr2):
-        """Swap two attributes for all waypoints."""
-        logger.debug(f"Swapping attributes {attr1} and {attr2} for all waypoints")
-        if not self.current_state:
-            logger.debug("No current state")
-            return False
-        
-        waypoints = self.get_all_waypoints()
-        if not waypoints:
-            logger.debug("No waypoints found")
-            return False
-        
-        # Save current state for undo
-        self.history.append(copy.deepcopy(self.current_state))
-        self.future = []
-        
-        try:
-            for waypoint in waypoints:
-                value1 = self.get_attribute_value_from_waypoint(waypoint, attr1)
-                value2 = self.get_attribute_value_from_waypoint(waypoint, attr2)
-                self.set_attribute_value_to_waypoint(waypoint, attr1, value2)
-                self.set_attribute_value_to_waypoint(waypoint, attr2, value1)
+            logger.error(f"Failed to create backup: {e}")
+            return None
             
-            self.notify_history_changed()
-            return True
-        except Exception as e:
-            logger.error(f"Error swapping attributes for all waypoints: {e}")
-            return False
-
     def load_gpx(self, file_path):
-        """Load a GPX file and return its contents."""
-        logger.debug(f"Loading GPX file: {file_path}")
+        """Load a GPX file and parse it"""
         try:
-            # Parse the XML file
-            tree = ET.parse(file_path)
-            root = tree.getroot()
+            with open(file_path, 'r', encoding='utf-8') as f:
+                gpx_content = f.read()
+                
+            # Parse XML to dict
+            gpx_dict = xmltodict.parse(gpx_content)
             
-            # Convert XML to dict
-            xml_dict = xmltodict.parse(ET.tostring(root))
-            logger.debug(f"Parsed XML structure: {json.dumps(xml_dict, indent=2)}")
+            # Save current state
+            self.current_state = gpx_dict
             
-            # Store the current state
-            self.current_state = xml_dict
-            self.original_file_path = file_path
-            
-            # Clear history and future
-            self.history = []
+            # Add to history
+            self.history.append(copy.deepcopy(gpx_dict))
             self.future = []
+            self._notify_history_listeners()
             
-            # Notify listeners
-            self.notify_history_changed()
-            
+            logger.info(f"Loaded GPX file: {file_path}")
             return True
         except Exception as e:
             logger.error(f"Error loading GPX file: {e}")
             logger.error(traceback.format_exc())
             return False
-
+            
     def save_gpx(self, file_path):
-        """Save the current state to a GPX file."""
-        logger.debug(f"Saving GPX file to: {file_path}")
+        """Save the current state to a GPX file"""
+        if not self.current_state:
+            logger.error("No GPX data loaded")
+            return False
+            
         try:
             # Convert dict back to XML
-            xml_str = xmltodict.unparse(self.current_state)
-            with open(file_path, 'w') as f:
-                f.write(xml_str)
+            gpx_content = xmltodict.unparse(self.current_state, pretty=True)
+            
+            # Write to file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(gpx_content)
+                
+            logger.info(f"Saved GPX file: {file_path}")
             return True
         except Exception as e:
             logger.error(f"Error saving GPX file: {e}")
+            logger.error(traceback.format_exc())
             return False
-
-    def create_backup(self, file_path):
-        """Create a backup of the original file."""
-        backup_dir = os.path.join(os.path.dirname(file_path), "backup")
-        os.makedirs(backup_dir, exist_ok=True)
-        backup_path = os.path.join(backup_dir, f"{os.path.basename(file_path)}.{datetime.now().strftime('%Y%m%d%H%M%S')}")
-        shutil.copy2(file_path, backup_path)
-        return backup_path
-
-    def copy_attribute(self, source_attr, target_attr):
-        """Copy an attribute from source to target."""
-        logger.debug(f"Copying attribute {source_attr} to {target_attr}")
+            
+    def undo(self):
+        """Undo the last operation"""
+        if len(self.history) <= 1:
+            logger.warning("Nothing to undo")
+            return False
+            
+        # Move current state to future
+        self.future.append(copy.deepcopy(self.current_state))
+        
+        # Pop the current state from history
+        self.history.pop()
+        
+        # Set current state to the last item in history
+        self.current_state = copy.deepcopy(self.history[-1])
+        
+        self._notify_history_listeners()
+        logger.info("Undo operation")
+        return True
+        
+    def redo(self):
+        """Redo the last undone operation"""
+        if not self.future:
+            logger.warning("Nothing to redo")
+            return False
+            
+        # Get the last item from future
+        state = self.future.pop()
+        
+        # Add to history
+        self.history.append(copy.deepcopy(state))
+        
+        # Set current state
+        self.current_state = copy.deepcopy(state)
+        
+        self._notify_history_listeners()
+        logger.info("Redo operation")
+        return True
+        
+    def get_all_attributes(self):
+        """Get all available attributes from the current waypoint with editable status"""
         if not self.current_state:
-            logger.debug("No current state")
+            logger.error("No GPX data loaded")
+            return []
+            
+        try:
+            # Get the first waypoint to extract attributes
+            if 'gpx' in self.current_state and 'wpt' in self.current_state['gpx']:
+                wpt = self.current_state['gpx']['wpt']
+                if isinstance(wpt, list) and wpt:
+                    # Use the first waypoint
+                    self.current_waypoint = wpt[0]
+                elif isinstance(wpt, dict):
+                    # Single waypoint
+                    self.current_waypoint = wpt
+                else:
+                    logger.error("No waypoints found in GPX data")
+                    return []
+                    
+                # Extract attributes and mark as editable or read-only
+                attributes = []
+                for attr in self.current_waypoint.keys():
+                    # Check if attribute is in the editable list
+                    is_editable = attr in self.EDITABLE_ATTRIBUTES
+                    attributes.append({
+                        'name': attr,
+                        'editable': is_editable
+                    })
+                
+                logger.info(f"Found attributes: {[a['name'] for a in attributes]}")
+                return attributes
+            else:
+                logger.error("Invalid GPX structure")
+                return []
+        except Exception as e:
+            logger.error(f"Error getting attributes: {e}")
+            logger.error(traceback.format_exc())
+            return []
+            
+    def copy_attribute(self, source_attr, target_attr):
+        """Copy a source attribute to a target attribute in the first waypoint"""
+        if not self.current_state:
+            logger.error("No GPX data loaded")
             return False
-        
-        waypoints = self.get_all_waypoints()
-        if not waypoints:
-            logger.debug("No waypoints found")
-            return False
-        
-        # Save current state for undo
-        self.history.append(copy.deepcopy(self.current_state))
-        self.future = []
-        
+            
         try:
             # Get the first waypoint
-            waypoint = waypoints[0]
-            
-            # Get source value
-            source_value = self.get_attribute_value_from_waypoint(waypoint, source_attr)
-            logger.debug(f"Source value: {source_value}")
-            
-            # Set target value
-            self.set_attribute_value_to_waypoint(waypoint, target_attr, source_value)
-            
-            self.notify_history_changed()
-            return True
+            if 'gpx' in self.current_state and 'wpt' in self.current_state['gpx']:
+                wpt = self.current_state['gpx']['wpt']
+                if isinstance(wpt, list) and wpt:
+                    # Use the first waypoint
+                    waypoint = wpt[0]
+                elif isinstance(wpt, dict):
+                    # Single waypoint
+                    waypoint = wpt
+                else:
+                    logger.error("No waypoints found in GPX data")
+                    return False
+                    
+                # Check if source attribute exists
+                if source_attr not in waypoint:
+                    logger.error(f"Source attribute '{source_attr}' not found in waypoint")
+                    return False
+                    
+                # Copy source to target
+                waypoint[target_attr] = waypoint[source_attr]
+                
+                # Add to history
+                self.history.append(copy.deepcopy(self.current_state))
+                self.future = []
+                self._notify_history_listeners()
+                
+                logger.info(f"Copied attribute '{source_attr}' to '{target_attr}'")
+                return True
+            else:
+                logger.error("Invalid GPX structure")
+                return False
         except Exception as e:
             logger.error(f"Error copying attribute: {e}")
-            # Restore previous state
-            if self.history:
-                self.current_state = self.history.pop()
+            logger.error(traceback.format_exc())
             return False
-
-    def get_attribute_value_from_waypoint(self, waypoint, attribute):
-        """Get the value of an attribute from a waypoint, handling nested attributes."""
-        if not attribute:
-            return ""
             
-        parts = attribute.split('.')
-        current = waypoint
-        
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return ""
-                
-        return current
-
-    def set_attribute_value_to_waypoint(self, waypoint, attribute, value):
-        """Set the value of an attribute in a waypoint, handling nested attributes."""
-        if not attribute:
-            return
-            
-        parts = attribute.split('.')
-        current = waypoint
-        
-        for i, part in enumerate(parts[:-1]):
-            if part not in current:
-                current[part] = {}
-            current = current[part]
-                
-        current[parts[-1]] = value
-
-    def swap_attributes(self, attr1, attr2):
-        """Swap two attributes."""
-        logger.debug(f"Swapping attributes {attr1} and {attr2}")
+    def copy_attribute_all(self, source_attr, target_attr):
+        """Copy a source attribute to a target attribute in all waypoints"""
         if not self.current_state:
-            logger.debug("No current state")
+            logger.error("No GPX data loaded")
             return False
-        
-        waypoints = self.get_all_waypoints()
-        if not waypoints:
-            logger.debug("No waypoints found")
+            
+        try:
+            # Get all waypoints
+            if 'gpx' in self.current_state and 'wpt' in self.current_state['gpx']:
+                wpt = self.current_state['gpx']['wpt']
+                if isinstance(wpt, list):
+                    waypoints = wpt
+                elif isinstance(wpt, dict):
+                    # Single waypoint, convert to list
+                    waypoints = [wpt]
+                else:
+                    logger.error("No waypoints found in GPX data")
+                    return False
+                    
+                # Process each waypoint
+                success = False
+                for waypoint in waypoints:
+                    # Check if source attribute exists
+                    if source_attr in waypoint:
+                        # Copy source to target
+                        waypoint[target_attr] = waypoint[source_attr]
+                        success = True
+                        
+                if success:
+                    # Add to history
+                    self.history.append(copy.deepcopy(self.current_state))
+                    self.future = []
+                    self._notify_history_listeners()
+                    
+                    logger.info(f"Copied attribute '{source_attr}' to '{target_attr}' in all waypoints")
+                    return True
+                else:
+                    logger.error(f"Source attribute '{source_attr}' not found in any waypoint")
+                    return False
+            else:
+                logger.error("Invalid GPX structure")
+                return False
+        except Exception as e:
+            logger.error(f"Error copying attribute: {e}")
+            logger.error(traceback.format_exc())
             return False
-        
-        # Save current state for undo
-        self.history.append(copy.deepcopy(self.current_state))
-        self.future = []
-        
+            
+    def swap_attributes(self, attr1, attr2):
+        """Swap two attributes in the first waypoint"""
+        if not self.current_state:
+            logger.error("No GPX data loaded")
+            return False
+            
         try:
             # Get the first waypoint
-            waypoint = waypoints[0]
-            
-            # Get values
-            value1 = self.get_attribute_value_from_waypoint(waypoint, attr1)
-            value2 = self.get_attribute_value_from_waypoint(waypoint, attr2)
-            
-            logger.debug(f"Value 1: {value1}, Value 2: {value2}")
-            
-            # Swap values
-            self.set_attribute_value_to_waypoint(waypoint, attr1, value2)
-            self.set_attribute_value_to_waypoint(waypoint, attr2, value1)
-            
-            self.notify_history_changed()
-            return True
+            if 'gpx' in self.current_state and 'wpt' in self.current_state['gpx']:
+                wpt = self.current_state['gpx']['wpt']
+                if isinstance(wpt, list) and wpt:
+                    # Use the first waypoint
+                    waypoint = wpt[0]
+                elif isinstance(wpt, dict):
+                    # Single waypoint
+                    waypoint = wpt
+                else:
+                    logger.error("No waypoints found in GPX data")
+                    return False
+                    
+                # Check if both attributes exist
+                if attr1 not in waypoint:
+                    logger.error(f"Attribute '{attr1}' not found in waypoint")
+                    return False
+                if attr2 not in waypoint:
+                    logger.error(f"Attribute '{attr2}' not found in waypoint")
+                    return False
+                    
+                # Swap attributes
+                temp = waypoint[attr1]
+                waypoint[attr1] = waypoint[attr2]
+                waypoint[attr2] = temp
+                
+                # Add to history
+                self.history.append(copy.deepcopy(self.current_state))
+                self.future = []
+                self._notify_history_listeners()
+                
+                logger.info(f"Swapped attributes '{attr1}' and '{attr2}'")
+                return True
+            else:
+                logger.error("Invalid GPX structure")
+                return False
         except Exception as e:
             logger.error(f"Error swapping attributes: {e}")
-            # Restore previous state
-            if self.history:
-                self.current_state = self.history.pop()
+            logger.error(traceback.format_exc())
             return False
-
-    def undo(self):
-        """Undo the last action."""
-        logger.debug("Undoing last action")
-        if not self.history:
-            logger.debug("No history to undo")
+            
+    def swap_attributes_all(self, attr1, attr2):
+        """Swap two attributes in all waypoints"""
+        if not self.current_state:
+            logger.error("No GPX data loaded")
             return False
-        
+            
         try:
-            # Save current state for redo
-            self.future.append(copy.deepcopy(self.current_state))
-            
-            # Restore previous state
-            self.current_state = self.history.pop()
-            
-            self.notify_history_changed()
-            return True
-        except Exception as e:
-            logger.error(f"Error undoing action: {e}")
-            return False
-
-    def redo(self):
-        """Redo the last undone action."""
-        logger.debug("Redoing last undone action")
-        if not self.future:
-            logger.debug("No future to redo")
-            return False
-        
-        try:
-            # Save current state for undo
-            self.history.append(copy.deepcopy(self.current_state))
-            
-            # Restore future state
-            self.current_state = self.future.pop()
-            
-            self.notify_history_changed()
-            return True
-        except Exception as e:
-            logger.error(f"Error redoing action: {e}")
-            return False
-
-
-def main():
-    """Main entry point for the GPX Editor CLI."""
-    parser = argparse.ArgumentParser(description='GPX File Editor')
-    parser.add_argument('--input', help='Input GPX file')
-    parser.add_argument('--output', help='Output GPX file')
-    parser.add_argument('--copy', nargs=2, help='Copy attribute from source to target')
-    parser.add_argument('--swap', nargs=2, help='Swap two attributes')
-    parser.add_argument('--all', action='store_true', help='Apply operation to all waypoints')
-    
-    args = parser.parse_args()
-
-    if args.input and args.output:
-        editor = GPXEditor()
-        
-        # Create backup
-        backup_path = editor.create_backup(args.input)
-        print(f"Backup created at: {backup_path}")
-        
-        # Load file
-        if not editor.load_gpx(args.input):
-            print("Error loading file")
-            return
-            
-        # Perform operations
-        if args.copy:
-            if args.all:
-                if editor.copy_attribute_all(args.copy[0], args.copy[1]):
-                    print(f"Copied attribute {args.copy[0]} to {args.copy[1]} for all waypoints")
+            # Get all waypoints
+            if 'gpx' in self.current_state and 'wpt' in self.current_state['gpx']:
+                wpt = self.current_state['gpx']['wpt']
+                if isinstance(wpt, list):
+                    waypoints = wpt
+                elif isinstance(wpt, dict):
+                    # Single waypoint, convert to list
+                    waypoints = [wpt]
                 else:
-                    print("Error copying attributes for all waypoints")
-                    return
+                    logger.error("No waypoints found in GPX data")
+                    return False
+                    
+                # Process each waypoint
+                success = False
+                for waypoint in waypoints:
+                    # Check if both attributes exist
+                    if attr1 in waypoint and attr2 in waypoint:
+                        # Swap attributes
+                        temp = waypoint[attr1]
+                        waypoint[attr1] = waypoint[attr2]
+                        waypoint[attr2] = temp
+                        success = True
+                        
+                if success:
+                    # Add to history
+                    self.history.append(copy.deepcopy(self.current_state))
+                    self.future = []
+                    self._notify_history_listeners()
+                    
+                    logger.info(f"Swapped attributes '{attr1}' and '{attr2}' in all waypoints")
+                    return True
+                else:
+                    logger.error(f"Attributes '{attr1}' and '{attr2}' not found in any waypoint")
+                    return False
             else:
-                if editor.copy_attribute(args.copy[0], args.copy[1]):
-                    print(f"Copied attribute {args.copy[0]} to {args.copy[1]}")
-                else:
-                    print("Error copying attributes")
-                    return
-        elif args.swap:
-            if args.all:
-                if editor.swap_attributes_all(args.swap[0], args.swap[1]):
-                    print(f"Swapped attributes {args.swap[0]} and {args.swap[1]} for all waypoints")
-                else:
-                    print("Error swapping attributes for all waypoints")
-                    return
-            else:
-                if editor.swap_attributes(args.swap[0], args.swap[1]):
-                    print(f"Swapped attributes {args.swap[0]} and {args.swap[1]}")
-                else:
-                    print("Error swapping attributes")
-                    return
-                
-        # Save file
-        if editor.save_gpx(args.output):
-            print(f"File saved to: {args.output}")
-        else:
-            print("Error saving file")
-    else:
-        print("Error: Both input and output files must be specified.")
-        parser.print_help()
-
-
-if __name__ == "__main__":
-    main()
+                logger.error("Invalid GPX structure")
+                return False
+        except Exception as e:
+            logger.error(f"Error swapping attributes: {e}")
+            logger.error(traceback.format_exc())
+            return False

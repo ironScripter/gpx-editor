@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPX Editor Sample"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>Sample GPX File 2</name>
+    <desc>A second sample GPX file for testing the GPX Editor</desc>
+    <time>2025-05-02T15:00:00Z</time>
+  </metadata>
+  <wpt lat="34.0522" lon="-118.2437">
+    <ele>100</ele>
+    <time>2025-05-02T15:01:00Z</time>
+    <name>Location A</name>
+    <desc>Description for Location A</desc>
+    <sym>City</sym>
+    <cmt>This is Location A in a different city</cmt>
+    <type>urban</type>
+  </wpt>
+  <wpt lat="34.0523" lon="-118.2438">
+    <ele>105</ele>
+    <time>2025-05-02T15:02:00Z</time>
+    <name>Location B</name>
+    <desc>Description for Location B</desc>
+    <sym>Building</sym>
+    <cmt>This is Location B in the same city</cmt>
+    <type>urban</type>
+  </wpt>
+</gpx>

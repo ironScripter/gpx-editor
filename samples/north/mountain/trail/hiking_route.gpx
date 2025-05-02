@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPX Editor Sample"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>Mountain Trail Hike</name>
+    <desc>A hiking route in the northern mountains</desc>
+    <time>2025-05-02T16:00:00Z</time>
+  </metadata>
+  <wpt lat="45.5051" lon="-122.6750">
+    <ele>500</ele>
+    <time>2025-05-02T16:01:00Z</time>
+    <name>Trailhead</name>
+    <desc>Starting point of the trail</desc>
+    <sym>Trail Head</sym>
+    <cmt>Parking available here</cmt>
+    <type>trail</type>
+  </wpt>
+  <wpt lat="45.5052" lon="-122.6752">
+    <ele>550</ele>
+    <time>2025-05-02T16:30:00Z</time>
+    <name>Viewpoint</name>
+    <desc>Scenic viewpoint overlooking the valley</desc>
+    <sym>Scenic Area</sym>
+    <cmt>Great spot for photos</cmt>
+    <type>viewpoint</type>
+  </wpt>
+  <wpt lat="45.5055" lon="-122.6755">
+    <ele>600</ele>
+    <time>2025-05-02T17:00:00Z</time>
+    <name>Summit</name>
+    <desc>Mountain summit</desc>
+    <sym>Summit</sym>
+    <cmt>Highest point on the trail</cmt>
+    <type>summit</type>
+  </wpt>
+</gpx>
