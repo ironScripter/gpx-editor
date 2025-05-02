@@ -1,0 +1,35 @@
+name: Build and publish python package
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  publish-service-client-package:
+    environment: beta
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install six  # Install the missing dependency
+          pip install poetry poetry-dynamic-versioning
+      
+      - name: Build and publish
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          poetry config pypi-token.pypi $PYPI_TOKEN
+          poetry build
+          poetry publish
